@@ -1,0 +1,4 @@
+# Netlify reads this from the base directory (domain-page). The site is plain HTML with no build,
+# so the files in this folder are published as they are.
+[build]
+  publish = "."
