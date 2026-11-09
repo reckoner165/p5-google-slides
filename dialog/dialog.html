@@ -133,6 +133,32 @@
         <h2>Privacy Policy</h2>
         <p><strong>p5 Sketches for Slides</strong><br>Last updated: November 9, 2026</p>
         <p>p5 Sketches for Slides is a Google Slides add-on built by <a href="https://www.acrosspolyethylene.com/" target="_blank" rel="noopener">Sumanth Srinivasan</a>. It lets you write and run p5.js sketches and insert them into your presentation as images. This policy explains what the add-on accesses and what it does with it.</p>
+
+        <h3>What the add-on accesses</h3>
+        <p>The add-on asks Google for two permissions:</p>
+        <ul>
+          <li><strong>View and manage the presentation it's opened in.</strong> It uses this only to insert a sketch image on the current slide, read the selected image when you click "Load selected", and replace a sketch image when you click "Update on slide". It cannot see your other files.</li>
+          <li><strong>Show a dialog inside Google Slides,</strong> for the editor.</li>
+        </ul>
+
+        <h3>What it stores, and where</h3>
+        <ul>
+          <li><strong>In your presentation:</strong> when you insert or update a sketch, its code and export settings are saved in the image's alt-text description, so you can edit it again later. Anyone who can view the presentation can read this alt text. Delete the image or clear its alt text to remove it.</li>
+          <li><strong>In your browser:</strong> the code in the editor is saved in your browser's local storage so it isn't lost when you close the dialog. It stays on your device.</li>
+          <li><strong>Error logs:</strong> if the add-on hits an error while working with your slide, Google Apps Script records the error message in the developer's Google Cloud project, where only the developer can see it. These messages describe what went wrong and don't include your slides or sketch code.</li>
+        </ul>
+
+        <h3>What it does not do</h3>
+        <p>The add-on has no server of its own. Apart from the error logs above, it does not collect, send, sell or share your data, your presentations or your sketches, and it has no analytics, tracking or advertising. Sketches run entirely in your browser.</p>
+
+        <h3>Third-party services</h3>
+        <p>To run, the editor loads p5.js from cdnjs (Cloudflare), the GIF encoder gifenc from jsDelivr, and fonts from Google Fonts. These services receive standard web request information such as your IP address, under their own privacy policies. Sketch code that you write can also load files from other websites, such as with <code>loadImage()</code>; those requests are made by your code.</p>
+
+        <h3>Changes</h3>
+        <p>If this policy changes, the date at the top will be updated.</p>
+
+        <h3>Contact</h3>
+        <p>Questions: <a href="https://www.acrosspolyethylene.com/" target="_blank" rel="noopener">acrosspolyethylene.com</a></p>
       </div>
     </div>
     <script type="module" src="./src/main.ts"></script>
