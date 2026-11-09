@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font: 13px system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
+    #stage { width: 440px; padding: 10px; border-right: 1px solid #ddd; }
+    #stage iframe { width: 420px; height: 420px; border: 1px solid #ccc; background: #fafafa; }
+    #controls { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    button { padding: 5px 10px; }
+    #log { flex: 1; overflow: auto; background: #111; color: #ddd; font: 12px ui-monospace, monospace; padding: 8px; white-space: pre-wrap; }
+    #log .error { color: #ff7b7b; }
+    #log .ok { color: #8be38b; }
+    #preview { max-width: 200px; max-height: 120px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="frame-host"><em>Press Run (spike 2).</em></div>
+  </div>
+  <div id="controls">
+    <div class="row">
+      <strong>Spike 2:</strong>
+      <button id="run-button">Run</button>
+      <button id="stop-button">Stop</button>
+    </div>
+    <div class="row">
+      <strong>Spike 3:</strong>
+      <button id="ping-button">Ping iframe</button>
+      <button id="throw-button">Trigger error in iframe</button>
+    </div>
+    <div class="row">
+      <strong>Spike 4:</strong>
+      <label>GIF target
+        <select id="target-size">
+          <option value="2">2 MB</option>
+          <option value="5">5 MB</option>
+          <option value="10">10 MB</option>
+        </select>
+      </label>
+      <button id="record-button">Record GIF</button>
+      <button id="png-button">Snapshot PNG</button>
+      <button id="jpeg-button">Snapshot JPEG</button>
+    </div>
+    <div class="row">
+      <img id="preview" alt="">
+      <button id="insert-button" disabled>Insert last capture into slide</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <!-- Inner iframe document. A <template> keeps its scripts inert until we copy it into srcdoc. -->
+  <template id="frame-template">
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>body { margin: 0; overflow: hidden; }</style>
+      <script>
+        function sendToDialog(message, transferList) {
+          parent.postMessage(message, '*', transferList || []);
+        }
+        window.onerror = function (message, source, line, column) {
+          sendToDialog({ type: 'error', message: String(message), line: line, column: column });
+        };
+        window.addEventListener('unhandledrejection', function (event) {
+          const reason = event.reason;
+          sendToDialog({ type: 'error', message: 'Unhandled rejection: ' + (reason && reason.message ? reason.message : String(reason)) });
+        });
+      </script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+      <script>
+        const gifencModulePromise = import('https://cdn.jsdelivr.net/npm/gifenc@1.0.3/+esm');
+        let activeRecording = null;
+
+        function getMainCanvas(p5Instance) {
+          return (p5Instance && p5Instance.canvas) || document.querySelector('canvas');
+        }
+
+        // Plan's approach: hook into p5 after every frame.
+        p5.prototype.registerMethod('post', function () {
+          if (activeRecording) captureGifFrame(getMainCanvas(this));
+        });
+
+        function captureGifFrame(mainCanvas) {
+          const recording = activeRecording;
+          const { width, height, context, encoder, gifenc } = recording;
+          context.drawImage(mainCanvas, 0, 0, width, height);
+          const rgba = context.getImageData(0, 0, width, height).data;
+          const palette = gifenc.quantize(rgba, 256);
+          const indexedPixels = gifenc.applyPalette(rgba, palette);
+          encoder.writeFrame(indexedPixels, width, height, { palette: palette, delay: Math.round(1000 / recording.fps) });
+          recording.framesWritten++;
+          const bytesSoFar = encoder.bytesView().length;
+          if (bytesSoFar >= recording.targetBytes || recording.framesWritten >= recording.maxFrames) {
+            activeRecording = null;
+            encoder.finish();
+            const gifBytes = encoder.bytes();
+            sendToDialog({
+              type: 'image', mimeType: 'image/gif', buffer: gifBytes.buffer,
+              frames: recording.framesWritten, encodeMs: Math.round(performance.now() - recording.startedAt),
+            }, [gifBytes.buffer]);
+          }
+        }
+
+        async function startGifRecording(targetBytes, fps) {
+          const gifenc = await gifencModulePromise;
+          const mainCanvas = getMainCanvas();
+          const width = 400, height = 400;
+          const offscreen = document.createElement('canvas');
+          offscreen.width = width; offscreen.height = height;
+          activeRecording = {
+            gifenc: gifenc, encoder: gifenc.GIFEncoder(), context: offscreen.getContext('2d', { willReadFrequently: true }),
+            width: width, height: height, fps: fps, targetBytes: targetBytes, maxFrames: 120,
+            framesWritten: 0, startedAt: performance.now(),
+          };
+          sendToDialog({ type: 'status', message: 'gifenc loaded, recording (canvas ' + mainCanvas.width + 'x' + mainCanvas.height + ')' });
+        }
+
+        function takeSnapshot(mimeType, quality) {
+          const mainCanvas = getMainCanvas();
+          const offscreen = document.createElement('canvas');
+          offscreen.width = 400; offscreen.height = 400;
+          const context = offscreen.getContext('2d');
+          if (mimeType === 'image/jpeg') {
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, offscreen.width, offscreen.height);
+          }
+          context.drawImage(mainCanvas, 0, 0, offscreen.width, offscreen.height);
+          offscreen.toBlob(async function (blob) {
+            const buffer = await blob.arrayBuffer();
+            sendToDialog({ type: 'image', mimeType: mimeType, buffer: buffer }, [buffer]);
+          }, mimeType, quality);
+        }
+
+        window.addEventListener('message', function (event) {
+          if (event.source !== parent) return;
+          const message = event.data;
+          if (message.type === 'ping') {
+            sendToDialog({ type: 'pong', frameCount: typeof frameCount === 'number' ? frameCount : -1, sentAt: message.sentAt });
+          } else if (message.type === 'throw') {
+            setTimeout(function () { deliberatelyUndefinedFunctionForSpike(); }, 0);
+          } else if (message.type === 'record-gif') {
+            startGifRecording(message.targetBytes, message.fps);
+          } else if (message.type === 'snapshot') {
+            takeSnapshot(message.mimeType, message.quality);
+          }
+        });
+      </script>
+      <script>
+        // Test sketch: noisy background (to make the GIF big) plus a moving circle (to see animation).
+        function setup() {
+          createCanvas(400, 400);
+          pixelDensity(1);
+          frameRate(15);
+          sendToDialog({ type: 'status', message: 'p5 ' + p5.prototype.VERSION + ' setup() ran' });
+        }
+        function draw() {
+          loadPixels();
+          for (let pixelIndex = 0; pixelIndex < pixels.length; pixelIndex += 4) {
+            pixels[pixelIndex] = random(255);
+            pixels[pixelIndex + 1] = random(255);
+            pixels[pixelIndex + 2] = random(255);
+            pixels[pixelIndex + 3] = 255;
+          }
+          updatePixels();
+          fill(255, 0, 120);
+          noStroke();
+          circle(200 + 140 * cos(frameCount * 0.2), 200 + 140 * sin(frameCount * 0.2), 80);
+        }
+      </script>
+    </head>
+    <body></body>
+    </html>
+  </template>
+
+  <script>
+    const frameHost = document.getElementById('frame-host');
+    const logElement = document.getElementById('log');
+    const previewImage = document.getElementById('preview');
+    const insertButton = document.getElementById('insert-button');
+    let sketchFrame = null;
+    let lastCapture = null; // { mimeType, bytes }
+
+    function log(text, kind) {
+      const line = document.createElement('div');
+      if (kind) line.className = kind;
+      line.textContent = new Date().toISOString().slice(11, 23) + '  ' + text;
+      logElement.appendChild(line);
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    function formatBytes(byteCount) {
+      return (byteCount / (1024 * 1024)).toFixed(2) + ' MB (' + byteCount + ' bytes)';
+    }
+
+    function sendToFrame(message) {
+      if (!sketchFrame) { log('No iframe running. Press Run first.', 'error'); return; }
+      sketchFrame.contentWindow.postMessage(message, '*');
+    }
+
+    // Spike 2: fresh iframe per run.
+    function runSketch() {
+      stopSketch();
+      sketchFrame = document.createElement('iframe');
+      sketchFrame.setAttribute('sandbox', 'allow-scripts');
+      sketchFrame.srcdoc = document.getElementById('frame-template').innerHTML;
+      frameHost.innerHTML = '';
+      frameHost.appendChild(sketchFrame);
+      log('Iframe created with srcdoc (' + sketchFrame.srcdoc.length + ' chars)');
+    }
+
+    function stopSketch() {
+      if (sketchFrame) { sketchFrame.remove(); sketchFrame = null; log('Iframe removed'); }
+      frameHost.innerHTML = '<em>Stopped.</em>';
+    }
+
+    // Spike 3: messages from the iframe.
+    window.addEventListener('message', function (event) {
+      if (!sketchFrame || event.source !== sketchFrame.contentWindow) return;
+      const message = event.data;
+      if (message.type === 'status') {
+        log('iframe: ' + message.message, 'ok');
+      } else if (message.type === 'pong') {
+        log('pong received, frameCount=' + message.frameCount + ', round trip ' + Math.round(performance.now() - message.sentAt) + 'ms', 'ok');
+      } else if (message.type === 'error') {
+        log('iframe error: ' + message.message + (message.line ? ' (line ' + message.line + ')' : ''), 'error');
+      } else if (message.type === 'image') {
+        const bytes = new Uint8Array(message.buffer);
+        lastCapture = { mimeType: message.mimeType, bytes: bytes };
+        let summary = message.mimeType + ' received: ' + formatBytes(bytes.length);
+        if (message.frames) summary += ', ' + message.frames + ' frames, recorded+encoded in ' + message.encodeMs + 'ms';
+        log(summary, 'ok');
+        previewImage.src = URL.createObjectURL(new Blob([bytes], { type: message.mimeType }));
+        insertButton.disabled = false;
+      }
+    });
+
+    function bytesToBase64(bytes) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result).split(',')[1]); };
+        reader.onerror = reject;
+        reader.readAsDataURL(new Blob([bytes]));
+      });
+    }
+
+    // Spike 4: send to server and insert.
+    async function insertLastCapture() {
+      if (!lastCapture) return;
+      insertButton.disabled = true;
+      const encodeStart = performance.now();
+      const imageBase64 = await bytesToBase64(lastCapture.bytes);
+      log('base64 encoded: ' + imageBase64.length + ' chars in ' + Math.round(performance.now() - encodeStart) + 'ms; calling server...');
+      const callStart = performance.now();
+      google.script.run
+        .withSuccessHandler(function (result) {
+          log('Inserted! round trip ' + Math.round(performance.now() - callStart) + 'ms. Server: ' + JSON.stringify(result), 'ok');
+          insertButton.disabled = false;
+        })
+        .withFailureHandler(function (error) {
+          log('Server failed after ' + Math.round(performance.now() - callStart) + 'ms: ' + (error && error.message ? error.message : error), 'error');
+          insertButton.disabled = false;
+        })
+        .insertSpikeImage(imageBase64, lastCapture.mimeType);
+    }
+
+    document.getElementById('run-button').onclick = runSketch;
+    document.getElementById('stop-button').onclick = stopSketch;
+    document.getElementById('ping-button').onclick = function () {
+      sendToFrame({ type: 'ping', sentAt: performance.now() });
+      log('ping sent');
+    };
+    document.getElementById('throw-button').onclick = function () {
+      sendToFrame({ type: 'throw' });
+      log('asked iframe to throw');
+    };
+    document.getElementById('record-button').onclick = function () {
+      const targetMegabytes = Number(document.getElementById('target-size').value);
+      sendToFrame({ type: 'record-gif', targetBytes: targetMegabytes * 1024 * 1024, fps: 15 });
+      log('Recording GIF until ~' + targetMegabytes + ' MB...');
+    };
+    document.getElementById('png-button').onclick = function () {
+      sendToFrame({ type: 'snapshot', mimeType: 'image/png' });
+    };
+    document.getElementById('jpeg-button').onclick = function () {
+      sendToFrame({ type: 'snapshot', mimeType: 'image/jpeg', quality: 0.9 });
+    };
+    insertButton.onclick = insertLastCapture;
+
+    log('Dialog loaded (spike 1). Try clicking the deck behind this dialog.');
+  </script>
+</body>
+</html>
