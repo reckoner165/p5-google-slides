@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>p5 Sketch</title>
+  </head>
+  <body>
+    <div id="editor-column">
+      <div id="editor-host"></div>
+      <ul id="error-list"></ul>
+    </div>
+    <div id="preview-column">
+      <div id="toolbar">
+        <button id="run-button" class="round-button" title="Run (⌘/Ctrl + Enter)" aria-label="Run">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+        </button>
+        <button id="stop-button" class="round-button" title="Stop" aria-label="Stop">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" /></svg>
+        </button>
+        <span id="shortcut-hint">⌘/Ctrl + Enter to run</span>
+      </div>
+      <div id="frame-host"></div>
+
+      <section id="capture-panel">
+        <div class="field-row">
+          <label>Format
+            <select id="format-select">
+              <option value="gif">GIF</option>
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          </label>
+          <label>Scale
+            <select id="scale-select">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+        <div class="field-row" id="gif-settings">
+          <label>Duration <input id="duration-input" type="number" min="0.5" max="20" step="0.5" value="3"> s</label>
+          <label>FPS <input id="fps-input" type="number" min="1" max="50" step="1" value="15"></label>
+        </div>
+        <div class="field-row" id="jpeg-settings" hidden>
+          <label>Quality <input id="jpeg-quality-input" type="range" min="0.1" max="1" step="0.05" value="0.9"></label>
+          <span id="jpeg-quality-value">0.90</span>
+        </div>
+        <div class="field-row">
+          <button id="capture-button" class="text-button">Record GIF</button>
+          <span id="capture-status"></span>
+        </div>
+        <div id="result-area" hidden>
+          <img id="result-preview" alt="Captured sketch">
+          <div class="result-actions">
+            <span id="result-info"></span>
+            <button id="insert-button" class="text-button primary">Insert into slide</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

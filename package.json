@@ -1,0 +1,25 @@
+{
+  "name": "p5-google-slides",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:dialog": "vite build --config dialog/vite.config.ts",
+    "build:server": "esbuild apps-script/src/Code.ts --outfile=apps-script/dist/Code.js",
+    "build:manifest": "cp apps-script/appsscript.json apps-script/dist/appsscript.json",
+    "build": "npm run typecheck && rm -rf apps-script/dist && npm run build:dialog && npm run build:server && npm run build:manifest",
+    "push": "npm run build && cd apps-script && clasp push"
+  },
+  "devDependencies": {
+    "@types/google-apps-script": "^2.0.15",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vite-plugin-singlefile": "^2.3.4"
+  },
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.5",
+    "codemirror": "^6.0.2"
+  }
+}
