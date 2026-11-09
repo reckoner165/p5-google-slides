@@ -308,8 +308,23 @@ function setCompactLayout(isCompact: boolean): void {
 }
 
 collapseButton.addEventListener('click', () => setCompactLayout(!document.body.classList.contains('compact')));
-getElement('info-button').addEventListener('click', () => (getElement('info-page').hidden = false));
-getElement('info-back-button').addEventListener('click', () => (getElement('info-page').hidden = true));
+// The info page shows one view at a time: the about view, or the privacy policy or terms opened
+// from it. Back goes from a policy to the about view, and from the about view to the editor.
+const infoPage = getElement<HTMLDivElement>('info-page');
+const infoAboutView = getElement<HTMLDivElement>('info-about');
+const privacyView = getElement<HTMLDivElement>('privacy-view');
+const termsView = getElement<HTMLDivElement>('terms-view');
+
+function showInfoView(shownView: HTMLDivElement | null): void {
+  infoPage.hidden = shownView === null;
+  for (const infoView of [infoAboutView, privacyView, termsView]) infoView.hidden = infoView !== shownView;
+  infoPage.scrollTop = 0;
+}
+
+getElement('info-button').addEventListener('click', () => showInfoView(infoAboutView));
+getElement('privacy-link').addEventListener('click', () => showInfoView(privacyView));
+getElement('terms-link').addEventListener('click', () => showInfoView(termsView));
+getElement('info-back-button').addEventListener('click', () => showInfoView(infoAboutView.hidden ? infoAboutView : null));
 getElement('run-button').addEventListener('click', runSketch);
 getElement('stop-button').addEventListener('click', () => sketchRunner.pause());
 // A click asks about unsaved code before contacting Slides, so the question comes up right away.

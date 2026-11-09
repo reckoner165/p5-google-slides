@@ -1,0 +1,132 @@
+/* Shared by every page of p5sketch.acrosspolyethylene.com. */
+
+:root {
+  --text: #222;
+  --muted: #666;
+  --accent: #ed225d;
+  --rule: #e4e4e4;
+  --background: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font: 19px/1.6 'EB Garamond', Georgia, serif;
+}
+
+/* Monaco ships with macOS only; other systems fall back to their own monospace. */
+h1,
+h2,
+h3,
+.site-name {
+  font-family: Monaco, Menlo, Consolas, ui-monospace, monospace;
+  font-weight: normal;
+  line-height: 1.3;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-name {
+  color: var(--text);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 17px;
+}
+
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current='page'] {
+  color: var(--accent);
+}
+
+main {
+  padding: 40px 0 56px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+h2 {
+  margin: 40px 0 8px;
+  font-size: 18px;
+}
+
+h3 {
+  margin: 28px 0 4px;
+  font-size: 15px;
+}
+
+.lede {
+  margin: 0 0 24px;
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.updated {
+  margin-top: 0;
+  color: var(--muted);
+}
+
+ul,
+ol {
+  padding-left: 22px;
+}
+
+li + li {
+  margin-top: 6px;
+}
+
+code {
+  font-family: Monaco, Menlo, Consolas, ui-monospace, monospace;
+  font-size: 0.8em;
+}
+
+.site-footer {
+  padding: 24px 0 40px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.site-footer p {
+  margin: 0 0 6px;
+}
