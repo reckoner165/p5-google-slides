@@ -14,6 +14,18 @@ export interface InsertResult {
   objectId: string;
 }
 
+// Resizes the Apps Script dialog this page is shown in. Does nothing outside Slides.
+export function resizeDialog(width: number, height: number): void {
+  const scriptHost = (window as unknown as { google?: { script: { host: ScriptHost } } }).google?.script.host;
+  scriptHost?.setWidth(width);
+  scriptHost?.setHeight(height);
+}
+
+interface ScriptHost {
+  setWidth(width: number): void;
+  setHeight(height: number): void;
+}
+
 interface ScriptRunner {
   withSuccessHandler(handler: (result: unknown) => void): ScriptRunner;
   withFailureHandler(handler: (error: Error) => void): ScriptRunner;
@@ -49,9 +61,10 @@ export interface SelectedSketch {
   settings: SketchSettings;
 }
 
-export async function getSelectedSketch(): Promise<SelectedSketch | null> {
-  const selection = await callServer<{ objectId: string; sketchJson: string } | null>('getSelectedSketch');
-  if (!selection) return null;
+// Either the selected sketch, or the reason the selection isn't one.
+export async function getSelectedSketch(): Promise<SelectedSketch | { reason: string }> {
+  const selection = await callServer<{ objectId: string; sketchJson: string } | { reason: string }>('getSelectedSketch');
+  if ('reason' in selection) return selection;
   return { objectId: selection.objectId, settings: JSON.parse(selection.sketchJson) as SketchSettings };
 }
 

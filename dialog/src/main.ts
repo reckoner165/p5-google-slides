@@ -1,9 +1,13 @@
 import './style.css';
 import { createEditor, getEditorCode, setEditorCode, STARTER_SKETCH } from './editor';
 import { SketchRunner, type Capture, type RecordProgress, type SketchError } from './runner';
-import { bytesToBase64, getSelectedSketch, insertSketch, updateSketch, type SketchSettings } from './server';
+import { bytesToBase64, getSelectedSketch, insertSketch, resizeDialog, updateSketch, type SketchSettings } from './server';
 
 const LARGE_IMAGE_BYTES = 5 * 1024 * 1024;
+// FULL matches openEditor() in Code.ts.
+const FULL_DIALOG_SIZE = { width: 1000, height: 650 };
+const COMPACT_DIALOG_SIZE = { width: 560, height: 650 };
+const COMPACT_PREVIEW_SIZE = 120;
 
 function getElement<ElementType extends HTMLElement>(elementId: string): ElementType {
   return document.getElementById(elementId) as ElementType;
@@ -28,6 +32,9 @@ const resultInfo = getElement<HTMLSpanElement>('result-info');
 const insertButton = getElement<HTMLButtonElement>('insert-button');
 const updateButton = getElement<HTMLButtonElement>('update-button');
 const loadSelectedButton = getElement<HTMLButtonElement>('load-selected-button');
+const collapseButton = getElement<HTMLButtonElement>('collapse-button');
+const loadMessage = getElement<HTMLDivElement>('load-message');
+const loadMessageText = getElement<HTMLSpanElement>('load-message-text');
 
 // The latest capture, with the settings that produced it, waiting to be inserted.
 let pendingCapture: { capture: Capture; settings: SketchSettings } | null = null;
@@ -165,13 +172,27 @@ function applySettingsToControls(settings: SketchSettings): void {
   updateFormatControls();
 }
 
+// One line under the toolbar; the full text is in the tooltip when it doesn't fit.
+function showLoadError(message: string | null): void {
+  loadMessage.hidden = message === null;
+  loadMessageText.textContent = message ?? '';
+  loadMessage.title = message ?? '';
+}
+
+function setLoadingState(isLoading: boolean): void {
+  loadSelectedButton.disabled = isLoading;
+  loadSelectedButton.classList.toggle('is-loading', isLoading);
+  loadSelectedButton.textContent = isLoading ? 'Loading' : 'Load selected';
+}
+
 // isAutomatic: true when called as the dialog opens, where "nothing selected" is not an error.
 async function loadSelectedSketch(isAutomatic: boolean): Promise<void> {
-  loadSelectedButton.disabled = true;
+  setLoadingState(true);
+  showLoadError(null);
   try {
     const selectedSketch = await getSelectedSketch();
-    if (!selectedSketch) {
-      if (!isAutomatic) setCaptureStatus('Select one sketch image in the deck, then try again.', true);
+    if ('reason' in selectedSketch) {
+      if (!isAutomatic) showLoadError(selectedSketch.reason);
       return;
     }
     loadedSketchObjectId = selectedSketch.objectId;
@@ -182,12 +203,28 @@ async function loadSelectedSketch(isAutomatic: boolean): Promise<void> {
     runSketch();
     setCaptureStatus('Loaded the selected sketch. Capture it again, then Update on slide.');
   } catch (error) {
-    if (!isAutomatic) setCaptureStatus(error instanceof Error ? error.message : String(error), true);
+    if (!isAutomatic) showLoadError(error instanceof Error ? error.message : String(error));
   } finally {
-    loadSelectedButton.disabled = false;
+    setLoadingState(false);
   }
 }
 
+// Compact: a narrower dialog with code and export, so more of the slide is reachable.
+function setCompactLayout(isCompact: boolean): void {
+  document.body.classList.toggle('compact', isCompact);
+  const dialogSize = isCompact ? COMPACT_DIALOG_SIZE : FULL_DIALOG_SIZE;
+  resizeDialog(dialogSize.width, dialogSize.height);
+  if (isCompact) {
+    sketchRunner.setPreviewBounds(COMPACT_PREVIEW_SIZE, COMPACT_PREVIEW_SIZE);
+  } else {
+    sketchRunner.setPreviewBounds(Infinity, 400);
+  }
+  const buttonLabel = isCompact ? 'Expand' : 'Collapse';
+  collapseButton.setAttribute('aria-label', buttonLabel);
+  collapseButton.title = isCompact ? 'Expand to full editor' : 'Collapse to code and export';
+}
+
+collapseButton.addEventListener('click', () => setCompactLayout(!document.body.classList.contains('compact')));
 getElement('run-button').addEventListener('click', runSketch);
 getElement('stop-button').addEventListener('click', () => sketchRunner.pause());
 loadSelectedButton.addEventListener('click', () => loadSelectedSketch(false));

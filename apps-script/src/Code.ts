@@ -32,11 +32,16 @@ function decodeImageBlob(imageBase64: string, mimeType: string) {
   return Utilities.newBlob(imageBytes, mimeType, `p5-sketch.${fileExtension}`);
 }
 
-// An image belongs to this add-on when its description is JSON with "p5slides": 1.
+// An image belongs to this add-on when its description is JSON with "p5slides": 1 and the sketch code.
 function isSketchDescription(description: string): boolean {
   try {
     const parsedDescription = JSON.parse(description);
-    return parsedDescription !== null && typeof parsedDescription === 'object' && parsedDescription.p5slides === 1;
+    return (
+      parsedDescription !== null &&
+      typeof parsedDescription === 'object' &&
+      parsedDescription.p5slides === 1 &&
+      typeof parsedDescription.code === 'string'
+    );
   } catch {
     return false;
   }
@@ -54,19 +59,34 @@ function insertSketch(imageBase64: string, mimeType: string, sketchJson: string)
   return { objectId: insertedImage.getObjectId() };
 }
 
-// Called from the dialog. Returns the selected sketch image's settings, or null when the
-// selection isn't exactly one image made by this add-on.
+// Called from the dialog. Returns the selected sketch image's settings, or the reason it
+// couldn't, so the dialog can say exactly what's wrong with the selection.
 function getSelectedSketch() {
-  const pageElementRange = SlidesApp.getActivePresentation().getSelection().getPageElementRange();
-  if (!pageElementRange) return null;
+  const selection = SlidesApp.getActivePresentation().getSelection();
+  const pageElementRange = selection.getPageElementRange();
+  if (!pageElementRange) {
+    return { reason: `Nothing is selected on the slide (selection type: ${selection.getSelectionType()}).` };
+  }
   const selectedElements = pageElementRange.getPageElements();
-  if (selectedElements.length !== 1) return null;
+  if (selectedElements.length !== 1) {
+    return { reason: `${selectedElements.length} items are selected. Select just one sketch image.` };
+  }
   const selectedElement = selectedElements[0];
-  if (selectedElement.getPageElementType() !== SlidesApp.PageElementType.IMAGE) return null;
+  const elementType = selectedElement.getPageElementType();
+  if (elementType !== SlidesApp.PageElementType.IMAGE) {
+    return { reason: `The selected item is a ${elementType}, not an image.` };
+  }
 
   const selectedImage = selectedElement.asImage();
   const description = selectedImage.getDescription();
-  if (!isSketchDescription(description)) return null;
+  if (!description) {
+    return { reason: 'The selected image has no alt-text description, so it has no sketch saved in it.' };
+  }
+  if (!isSketchDescription(description)) {
+    return {
+      reason: `The selected image's alt text isn't a saved sketch (${description.length} characters, starts with: ${description.slice(0, 60)}).`,
+    };
+  }
   return { objectId: selectedImage.getObjectId(), sketchJson: description };
 }
 

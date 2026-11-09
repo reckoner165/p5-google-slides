@@ -1,7 +1,6 @@
 import { RECORDER_SCRIPT } from './recorder';
 
 const P5_SCRIPT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js';
-const MAX_PREVIEW_HEIGHT = 400;
 
 export interface SketchError {
   message: string;
@@ -65,6 +64,8 @@ export class SketchRunner {
   private sketchFrame: HTMLIFrameElement | null = null;
   private linesBeforeUserCode = 0;
   private runningCode = '';
+  private previewBounds = { maxWidth: Infinity, maxHeight: 400 };
+  private lastCanvasSize: { width: number; height: number } | null = null;
 
   constructor(
     private readonly frameHost: HTMLElement,
@@ -112,11 +113,19 @@ export class SketchRunner {
     this.sketchFrame.contentWindow.postMessage(message, '*');
   }
 
+  // The largest size the preview may take up; the canvas is scaled down to fit inside it.
+  setPreviewBounds(maxWidth: number, maxHeight: number): void {
+    this.previewBounds = { maxWidth, maxHeight };
+    if (this.lastCanvasSize) this.fitFrameToCanvas(this.lastCanvasSize.width, this.lastCanvasSize.height);
+  }
+
   // Shows the canvas at its real size, scaled down only if it doesn't fit the preview area.
   private fitFrameToCanvas(canvasWidth: number, canvasHeight: number): void {
+    this.lastCanvasSize = { width: canvasWidth, height: canvasHeight };
     if (!this.sketchFrame) return;
-    const availableWidth = this.frameHost.parentElement?.clientWidth ?? canvasWidth;
-    const previewScale = Math.min(1, availableWidth / canvasWidth, MAX_PREVIEW_HEIGHT / canvasHeight);
+    const columnWidth = this.frameHost.parentElement?.clientWidth || canvasWidth;
+    const availableWidth = Math.min(columnWidth, this.previewBounds.maxWidth);
+    const previewScale = Math.min(1, availableWidth / canvasWidth, this.previewBounds.maxHeight / canvasHeight);
     this.sketchFrame.style.width = `${canvasWidth}px`;
     this.sketchFrame.style.height = `${canvasHeight}px`;
     this.sketchFrame.style.transform = `scale(${previewScale})`;

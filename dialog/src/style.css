@@ -222,6 +222,119 @@ input {
   margin-left: auto;
 }
 
+#collapse-button {
+  background: #d9d9d9;
+  stroke: #333;
+  stroke-width: 2;
+  fill: none;
+}
+
+.pill-button {
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+/* "Loading" with dots that appear one by one. */
+.pill-button.is-loading::after {
+  content: '...';
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: loading-dots 1.2s steps(4, jump-none) infinite;
+}
+
+@keyframes loading-dots {
+  to {
+    width: 1.1em;
+  }
+}
+
+#load-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #b00020;
+  fill: #b00020;
+}
+
+#load-message[hidden] {
+  display: none;
+}
+
+#load-message svg {
+  flex: none;
+}
+
+#load-message-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expand-icon,
+body.compact .collapse-icon {
+  display: none;
+}
+
+body.compact .expand-icon {
+  display: block;
+}
+
+/* Compact layout: toolbar on top, editor in the middle, a small live preview beside the export
+   controls at the bottom. The preview stays visible because browsers stop animating hidden iframes. */
+body.compact {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'toolbar toolbar'
+    'message message'
+    'editor editor'
+    'frame capture';
+}
+
+body.compact #load-message {
+  grid-area: message;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+body.compact #preview-column {
+  display: contents;
+}
+
+body.compact #toolbar {
+  grid-area: toolbar;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+body.compact #shortcut-hint {
+  display: none;
+}
+
+body.compact #editor-column {
+  grid-area: editor;
+  min-height: 0;
+  border-right: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+body.compact #frame-host {
+  grid-area: frame;
+  align-self: start;
+  margin: 12px 0 12px 10px;
+}
+
+body.compact #capture-panel {
+  grid-area: capture;
+  padding: 12px 10px;
+  border-top: 0;
+}
+
 .round-button {
   width: 44px;
   height: 44px;
