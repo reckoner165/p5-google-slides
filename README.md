@@ -1,4 +1,4 @@
-# p5 Sketches for Google Slides
+# p5 Sketches for Slides
 
 A Google Slides editor add-on for writing and running p5.js sketches next to your deck, then
 putting them on a slide as an animated GIF or a still PNG/JPEG. Sketches you insert can be

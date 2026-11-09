@@ -2,43 +2,51 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>p5 Sketch</title>
+    <title>p5 Sketches for Slides</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;600&family=Montserrat:wght@400;500;600&display=swap">
   </head>
   <body>
+    <div id="toolbar">
+      <button id="run-button" class="round-button" title="Run (⌘/Ctrl + Enter)" aria-label="Run">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+      </button>
+      <button id="stop-button" class="round-button" title="Stop" aria-label="Stop">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" /></svg>
+      </button>
+      <button id="load-selected-button" class="text-button pill-button" title="Load the sketch image selected in the deck">Load selected</button>
+      <button id="collapse-button" class="round-button" title="Collapse to code and export" aria-label="Collapse">
+        <!-- Arrows pointing in: collapse. Arrows pointing out: expand. CSS shows the right one. -->
+        <svg class="collapse-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M10 4v6H4M14 20v-6h6M10 10 3 3M14 14l7 7" />
+        </svg>
+        <svg class="expand-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M3 9V3h6M21 15v6h-6M3 3l7 7M21 21l-7-7" />
+        </svg>
+      </button>
+      <button id="info-button" class="round-button" title="About" aria-label="About">
+        <!-- Material Icons "Info" (same path as @mui/icons-material/Info). -->
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2zm0-8h-2V7h2z" />
+        </svg>
+      </button>
+    </div>
     <div id="editor-column">
       <div id="editor-host"></div>
       <ul id="error-list"></ul>
+      <p id="editor-note">Note: <code>loadImage()</code> from other websites usually fails, because most sites block it.</p>
     </div>
     <div id="preview-column">
-      <div id="toolbar">
-        <button id="run-button" class="round-button" title="Run (⌘/Ctrl + Enter)" aria-label="Run">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
-        </button>
-        <button id="stop-button" class="round-button" title="Stop" aria-label="Stop">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" /></svg>
-        </button>
-        <span id="shortcut-hint">⌘/Ctrl + Enter to run</span>
-        <button id="load-selected-button" class="text-button pill-button" title="Load the sketch image selected in the deck">Load selected</button>
-        <button id="collapse-button" class="round-button" title="Collapse to code and export" aria-label="Collapse">
-          <!-- Arrows pointing in: collapse. Arrows pointing out: expand. CSS shows the right one. -->
-          <svg class="collapse-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M10 4v6H4M14 20v-6h6M10 10 3 3M14 14l7 7" />
-          </svg>
-          <svg class="expand-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M3 9V3h6M21 15v6h-6M3 3l7 7M21 21l-7-7" />
-          </svg>
-        </button>
-      </div>
-      <div id="load-message" role="alert" hidden>
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <!-- The dialog's one status line. The icon only shows for errors and warnings. -->
+      <div id="status-bar" role="status" hidden>
+        <svg class="status-error-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
           <circle cx="12" cy="12" r="10" />
           <rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff" />
           <circle cx="12" cy="16.75" r="1.25" fill="#fff" />
         </svg>
-        <span id="load-message-text"></span>
+        <span id="status-bar-text"></span>
+        <span id="status-bar-actions"></span>
       </div>
       <div id="frame-host"></div>
 
@@ -87,7 +95,6 @@
 
         <div class="action-row">
           <button id="capture-button" class="text-button">Record GIF</button>
-          <span id="capture-status"></span>
         </div>
 
         <div id="result-area" hidden>
@@ -101,6 +108,32 @@
           </div>
         </div>
       </section>
+    </div>
+    <!-- Covers the whole dialog instead of hiding the editor, so the running sketch keeps animating. -->
+    <div id="info-page" hidden>
+      <button id="info-back-button" class="round-button" title="Back" aria-label="Back">
+        <!-- Material Icons "ArrowBack" (same path as @mui/icons-material/ArrowBack). -->
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z" />
+        </svg>
+      </button>
+      <div id="info-text">
+        <p>Built by <a href="https://www.acrosspolyethylene.com/" target="_blank" rel="noopener">Sumanth Srinivasan</a>. Not affiliated with or endorsed by the Processing Foundation or Google.</p>
+        <p>
+          Uses
+          <a href="https://github.com/processing/p5.js" target="_blank" rel="noopener">p5.js</a>
+          (<a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html" target="_blank" rel="noopener">LGPL-2.1</a>),
+          <a href="https://github.com/codemirror/dev" target="_blank" rel="noopener">CodeMirror</a>
+          (<a href="https://opensource.org/license/mit" target="_blank" rel="noopener">MIT</a>),
+          <a href="https://github.com/mattdesl/gifenc" target="_blank" rel="noopener">gifenc</a>
+          (<a href="https://opensource.org/license/mit" target="_blank" rel="noopener">MIT</a>).
+        </p>
+        <p>Google Slides™ is a trademark of Google LLC.</p>
+
+        <h2>Privacy Policy</h2>
+        <p><strong>p5 Sketches for Slides</strong><br>Last updated: November 9, 2026</p>
+        <p>p5 Sketches for Slides is a Google Slides add-on built by <a href="https://www.acrosspolyethylene.com/" target="_blank" rel="noopener">Sumanth Srinivasan</a>. It lets you write and run p5.js sketches and insert them into your presentation as images. This policy explains what the add-on accesses and what it does with it.</p>
+      </div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

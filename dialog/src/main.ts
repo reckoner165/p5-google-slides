@@ -1,7 +1,15 @@
 import './style.css';
 import { createEditor, getEditorCode, setEditorCode, STARTER_SKETCH } from './editor';
 import { SketchRunner, type Capture, type RecordProgress, type SketchError } from './runner';
-import { bytesToBase64, getSelectedSketch, insertSketch, resizeDialog, updateSketch, type SketchSettings } from './server';
+import {
+  bytesToBase64,
+  getSelectedSketch,
+  insertSketch,
+  resizeDialog,
+  updateSketch,
+  type SelectedSketch,
+  type SketchSettings,
+} from './server';
 
 const LARGE_IMAGE_BYTES = 5 * 1024 * 1024;
 // FULL matches openEditor() in Code.ts.
@@ -25,7 +33,6 @@ const fpsInput = getElement<HTMLInputElement>('fps-input');
 const jpegQualityInput = getElement<HTMLInputElement>('jpeg-quality-input');
 const jpegQualityValue = getElement<HTMLSpanElement>('jpeg-quality-value');
 const captureButton = getElement<HTMLButtonElement>('capture-button');
-const captureStatus = getElement<HTMLSpanElement>('capture-status');
 const resultArea = getElement<HTMLDivElement>('result-area');
 const resultPreview = getElement<HTMLImageElement>('result-preview');
 const resultInfo = getElement<HTMLSpanElement>('result-info');
@@ -33,8 +40,9 @@ const insertButton = getElement<HTMLButtonElement>('insert-button');
 const updateButton = getElement<HTMLButtonElement>('update-button');
 const loadSelectedButton = getElement<HTMLButtonElement>('load-selected-button');
 const collapseButton = getElement<HTMLButtonElement>('collapse-button');
-const loadMessage = getElement<HTMLDivElement>('load-message');
-const loadMessageText = getElement<HTMLSpanElement>('load-message-text');
+const statusBar = getElement<HTMLDivElement>('status-bar');
+const statusBarText = getElement<HTMLSpanElement>('status-bar-text');
+const statusBarActions = getElement<HTMLSpanElement>('status-bar-actions');
 
 // The latest capture, with the settings that produced it, waiting to be inserted.
 let pendingCapture: { capture: Capture; settings: SketchSettings } | null = null;
@@ -46,9 +54,28 @@ function formatMegabytes(byteCount: number): string {
   return `${(byteCount / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function setCaptureStatus(statusText: string, isWarning = false): void {
-  captureStatus.textContent = statusText;
-  captureStatus.classList.toggle('warning', isWarning);
+interface StatusAction {
+  label: string;
+  onClick: () => void;
+}
+
+// The one status line under the toolbar. Empty text hides it; errors and warnings show red with
+// an icon. The full text is in the tooltip when it doesn't fit on one line. Optional action
+// buttons sit at the end of the line, e.g. Replace / Cancel.
+function setStatus(statusText: string, isError = false, statusActions: StatusAction[] = []): void {
+  statusBar.hidden = statusText === '';
+  statusBar.classList.toggle('is-error', isError);
+  statusBarText.textContent = statusText;
+  statusBar.title = statusText;
+  statusBarActions.replaceChildren(
+    ...statusActions.map((statusAction) => {
+      const actionButton = document.createElement('button');
+      actionButton.className = 'text-button status-action';
+      actionButton.textContent = statusAction.label;
+      actionButton.addEventListener('click', statusAction.onClick);
+      return actionButton;
+    }),
+  );
 }
 
 function showSketchError(sketchError: SketchError): void {
@@ -59,7 +86,7 @@ function showSketchError(sketchError: SketchError): void {
 
 function showRecordProgress(progress: RecordProgress): void {
   const isLarge = progress.estimatedBytes > LARGE_IMAGE_BYTES;
-  setCaptureStatus(
+  setStatus(
     `Recording ${progress.framesWritten}/${progress.totalFrames} frames · about ${formatMegabytes(progress.estimatedBytes)}` +
       (isLarge ? ' (over 5 MB: inserting will be slow)' : ''),
     isLarge,
@@ -81,13 +108,13 @@ function showCapture(capture: Capture): void {
   insertButton.disabled = false;
   updateButton.hidden = loadedSketchObjectId === null;
   updateButton.disabled = false;
-  setCaptureStatus('');
+  setStatus('');
 }
 
 function showCaptureError(message: string): void {
   settingsForCaptureInProgress = null;
   captureButton.disabled = false;
-  setCaptureStatus(message, true);
+  setStatus(message, true);
 }
 
 const sketchRunner = new SketchRunner(frameHost, {
@@ -101,11 +128,58 @@ function runSketch(): void {
   errorList.replaceChildren();
   settingsForCaptureInProgress = null;
   captureButton.disabled = false;
-  setCaptureStatus('');
+  setStatus('');
   sketchRunner.run(getEditorCode(editorView));
 }
 
-const editorView = createEditor(getElement('editor-host'), STARTER_SKETCH, runSketch);
+// The editor's code is kept in this browser's storage so closing the dialog doesn't lose it.
+// Storage can be blocked (private windows, site settings), so every access is wrapped.
+const SAVED_CODE_STORAGE_KEY = 'p5slides.unsavedCode';
+// The code most recently loaded from, inserted into, or updated on a slide. Editor code that
+// matches it (or the starter sketch) is safe to replace without asking.
+const PLACED_CODE_STORAGE_KEY = 'p5slides.placedCode';
+const SAVE_DELAY_MS = 400;
+let pendingSaveTimer: number | undefined;
+
+function readStoredText(storageKey: string): string | null {
+  try {
+    return localStorage.getItem(storageKey);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredText(storageKey: string, text: string): void {
+  try {
+    localStorage.setItem(storageKey, text);
+  } catch {
+    // Storage unavailable: the text just won't be remembered.
+  }
+}
+
+function saveCodeSoon(code: string): void {
+  window.clearTimeout(pendingSaveTimer);
+  pendingSaveTimer = window.setTimeout(() => writeStoredText(SAVED_CODE_STORAGE_KEY, code), SAVE_DELAY_MS);
+}
+
+let placedCode = readStoredText(PLACED_CODE_STORAGE_KEY);
+
+function rememberPlacedCode(code: string): void {
+  placedCode = code;
+  writeStoredText(PLACED_CODE_STORAGE_KEY, code);
+}
+
+const editorView = createEditor(
+  getElement('editor-host'),
+  readStoredText(SAVED_CODE_STORAGE_KEY) ?? STARTER_SKETCH,
+  runSketch,
+  saveCodeSoon,
+);
+
+function hasUnplacedCode(): boolean {
+  const editorCode = getEditorCode(editorView);
+  return editorCode !== STARTER_SKETCH && editorCode !== placedCode;
+}
 
 function updateFormatControls(): void {
   const format = formatSelect.value;
@@ -124,11 +198,11 @@ function startCapture(): void {
   if (format === 'gif') {
     settings.duration = Number(durationInput.value);
     settings.fps = Number(fpsInput.value);
-    setCaptureStatus('Starting recording…');
+    setStatus('Starting recording…');
     sketchRunner.record(settings.duration, settings.fps, scale);
   } else {
     if (format === 'jpeg') settings.jpegQuality = Number(jpegQualityInput.value);
-    setCaptureStatus('Capturing…');
+    setStatus('Capturing…');
     sketchRunner.snapshot(format === 'png' ? 'image/png' : 'image/jpeg', scale, settings.jpegQuality ?? 0.9);
   }
 }
@@ -140,18 +214,19 @@ async function sendPendingCapture(destination: 'insert' | 'update'): Promise<voi
   insertButton.disabled = true;
   updateButton.disabled = true;
   const actionName = destination === 'insert' ? 'Inserting' : 'Updating';
-  setCaptureStatus(`${actionName} ${formatMegabytes(capture.bytes.length)}…`);
+  setStatus(`${actionName} ${formatMegabytes(capture.bytes.length)}…`);
   try {
     const imageBase64 = await bytesToBase64(capture.bytes);
     if (destination === 'update' && loadedSketchObjectId) {
       await updateSketch(loadedSketchObjectId, imageBase64, capture.mimeType, settings);
-      setCaptureStatus('Updated on the slide.');
+      setStatus('Updated on the slide.');
     } else {
       await insertSketch(imageBase64, capture.mimeType, settings);
-      setCaptureStatus('Inserted into the slide.');
+      setStatus('Inserted into the slide.');
     }
+    rememberPlacedCode(settings.code);
   } catch (error) {
-    setCaptureStatus(error instanceof Error ? error.message : String(error), true);
+    setStatus(error instanceof Error ? error.message : String(error), true);
   } finally {
     insertButton.disabled = false;
     updateButton.disabled = false;
@@ -172,38 +247,46 @@ function applySettingsToControls(settings: SketchSettings): void {
   updateFormatControls();
 }
 
-// One line under the toolbar; the full text is in the tooltip when it doesn't fit.
-function showLoadError(message: string | null): void {
-  loadMessage.hidden = message === null;
-  loadMessageText.textContent = message ?? '';
-  loadMessage.title = message ?? '';
-}
-
 function setLoadingState(isLoading: boolean): void {
   loadSelectedButton.disabled = isLoading;
   loadSelectedButton.classList.toggle('is-loading', isLoading);
   loadSelectedButton.textContent = isLoading ? 'Loading' : 'Load selected';
 }
 
+function applyLoadedSketch(selectedSketch: SelectedSketch): void {
+  loadedSketchObjectId = selectedSketch.objectId;
+  setEditorCode(editorView, selectedSketch.settings.code);
+  rememberPlacedCode(selectedSketch.settings.code);
+  applySettingsToControls(selectedSketch.settings);
+  pendingCapture = null;
+  resultArea.hidden = true;
+  runSketch();
+  setStatus('Loaded the selected sketch. Capture it again, then Update on slide.');
+}
+
 // isAutomatic: true when called as the dialog opens, where "nothing selected" is not an error.
-async function loadSelectedSketch(isAutomatic: boolean): Promise<void> {
+// replaceConfirmed: true when the user already agreed to replace their code (or there was nothing
+// to lose), so there's no need to ask again after the selection comes back.
+async function loadSelectedSketch(isAutomatic: boolean, replaceConfirmed: boolean): Promise<void> {
   setLoadingState(true);
-  showLoadError(null);
+  setStatus('');
   try {
     const selectedSketch = await getSelectedSketch();
     if ('reason' in selectedSketch) {
-      if (!isAutomatic) showLoadError(selectedSketch.reason);
+      if (!isAutomatic) setStatus(selectedSketch.reason, true);
       return;
     }
-    loadedSketchObjectId = selectedSketch.objectId;
-    setEditorCode(editorView, selectedSketch.settings.code);
-    applySettingsToControls(selectedSketch.settings);
-    pendingCapture = null;
-    resultArea.hidden = true;
-    runSketch();
-    setCaptureStatus('Loaded the selected sketch. Capture it again, then Update on slide.');
+    const isSameCode = getEditorCode(editorView) === selectedSketch.settings.code;
+    if (!replaceConfirmed && hasUnplacedCode() && !isSameCode) {
+      setStatus('Replace code that isn’t on a slide yet?', true, [
+        { label: 'Replace', onClick: () => applyLoadedSketch(selectedSketch) },
+        { label: 'Cancel', onClick: () => setStatus('Kept your code. The selected sketch wasn’t loaded.') },
+      ]);
+      return;
+    }
+    applyLoadedSketch(selectedSketch);
   } catch (error) {
-    if (!isAutomatic) showLoadError(error instanceof Error ? error.message : String(error));
+    if (!isAutomatic) setStatus(error instanceof Error ? error.message : String(error), true);
   } finally {
     setLoadingState(false);
   }
@@ -225,9 +308,21 @@ function setCompactLayout(isCompact: boolean): void {
 }
 
 collapseButton.addEventListener('click', () => setCompactLayout(!document.body.classList.contains('compact')));
+getElement('info-button').addEventListener('click', () => (getElement('info-page').hidden = false));
+getElement('info-back-button').addEventListener('click', () => (getElement('info-page').hidden = true));
 getElement('run-button').addEventListener('click', runSketch);
 getElement('stop-button').addEventListener('click', () => sketchRunner.pause());
-loadSelectedButton.addEventListener('click', () => loadSelectedSketch(false));
+// A click asks about unsaved code before contacting Slides, so the question comes up right away.
+loadSelectedButton.addEventListener('click', () => {
+  if (!hasUnplacedCode()) {
+    loadSelectedSketch(false, true);
+    return;
+  }
+  setStatus('Replace code that isn’t on a slide yet?', true, [
+    { label: 'Replace', onClick: () => loadSelectedSketch(false, true) },
+    { label: 'Cancel', onClick: () => setStatus('Kept your code. Nothing was loaded.') },
+  ]);
+});
 formatSelect.addEventListener('change', updateFormatControls);
 jpegQualityInput.addEventListener('input', () => {
   jpegQualityValue.textContent = Number(jpegQualityInput.value).toFixed(2);
@@ -238,4 +333,6 @@ updateButton.addEventListener('click', () => sendPendingCapture('update'));
 
 updateFormatControls();
 runSketch();
-loadSelectedSketch(true);
+// On open, check the selection first: asking before knowing a sketch is selected would prompt
+// every time the dialog opens.
+loadSelectedSketch(true, false);

@@ -16,7 +16,7 @@ function openEditor() {
   const html = HtmlService.createHtmlOutputFromFile('dialog')
     .setWidth(1000)
     .setHeight(650);
-  SlidesApp.getUi().showModelessDialog(html, 'p5 Sketch');
+  SlidesApp.getUi().showModelessDialog(html, 'p5 Sketches for Slides');
 }
 
 const FILE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {

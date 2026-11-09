@@ -16,14 +16,22 @@ function draw() {
 `;
 
 // Mod-Enter is Cmd+Enter on Mac, Ctrl+Enter elsewhere. Prec.highest beats basicSetup's own Mod-Enter binding.
-export function createEditor(parentElement: HTMLElement, initialCode: string, onRunShortcut: () => void): EditorView {
+export function createEditor(
+  parentElement: HTMLElement,
+  initialCode: string,
+  onRunShortcut: () => void,
+  onCodeChange: (code: string) => void,
+): EditorView {
   const runShortcut = Prec.highest(
     keymap.of([{ key: 'Mod-Enter', run: () => { onRunShortcut(); return true; } }]),
   );
+  const codeChangeListener = EditorView.updateListener.of((viewUpdate) => {
+    if (viewUpdate.docChanged) onCodeChange(viewUpdate.state.doc.toString());
+  });
   return new EditorView({
     doc: initialCode,
     parent: parentElement,
-    extensions: [basicSetup, javascript(), runShortcut],
+    extensions: [basicSetup, javascript(), runShortcut, codeChangeListener],
   });
 }
 

@@ -2,12 +2,15 @@ body {
   margin: 0;
   font: 13px 'Montserrat', system-ui, sans-serif;
   height: 100vh;
-  display: flex;
+  /* Toolbar across the full width on top, editor and preview side by side below it. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 #editor-column {
-  flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #ddd;
@@ -26,6 +29,32 @@ body {
 #editor-host .cm-scroller {
   font-family: 'Inconsolata', ui-monospace, monospace;
   font-size: 15px;
+  line-height: 1.2;
+}
+
+#editor-host .cm-gutters {
+  background: #fff;
+  color: #6c6c6c;
+}
+
+/* Flat grey scrollbar with square ends and no track, like the p5 web editor. */
+#editor-host .cm-scroller::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+#editor-host .cm-scroller::-webkit-scrollbar-track,
+#editor-host .cm-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+#editor-host .cm-scroller::-webkit-scrollbar-thumb {
+  background: #8f8f8f;
+  border-radius: 0;
+}
+
+#editor-host .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
 
 /* Buttons and form controls don't inherit the page font by default. */
@@ -50,8 +79,21 @@ input {
   display: none;
 }
 
+#editor-note {
+  margin: 0;
+  padding: 6px 10px;
+  border-top: 1px solid #eee;
+  color: #888;
+  font-size: 11px;
+}
+
+#editor-note code {
+  font-family: 'Inconsolata', ui-monospace, monospace;
+  font-size: 12px;
+}
+
 #preview-column {
-  width: 440px;
+  min-height: 0;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -173,10 +215,6 @@ input {
   display: none;
 }
 
-#capture-status {
-  color: #555;
-}
-
 .warning {
   color: #b00020 !important;
 }
@@ -213,9 +251,12 @@ input {
 }
 
 #toolbar {
+  grid-column: 1 / -1;
   display: flex;
   gap: 6px;
   align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
 }
 
 #load-selected-button {
@@ -223,10 +264,59 @@ input {
 }
 
 #collapse-button {
-  background: #d9d9d9;
+  background: transparent;
   stroke: #333;
   stroke-width: 2;
   fill: none;
+}
+
+#collapse-button:hover {
+  filter: none;
+  stroke: #ed225d;
+}
+
+#info-button {
+  background: transparent;
+  fill: #333;
+}
+
+#info-button:hover {
+  filter: none;
+  fill: #ed225d;
+}
+
+#info-back-button {
+  background: #d9d9d9;
+  fill: #333;
+}
+
+#info-page {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #fff;
+  padding: 10px;
+}
+
+#info-page[hidden] {
+  display: none;
+}
+
+#info-text {
+  max-width: 520px;
+  margin-top: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+
+#info-text h2 {
+  margin: 28px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#info-text a {
+  color: #ed225d;
 }
 
 .pill-button {
@@ -235,43 +325,79 @@ input {
   border-radius: 999px;
 }
 
-/* "Loading" with dots that appear one by one. */
+/* Fixed width so the button doesn't change size between "Load selected" and "Loading...". */
+#load-selected-button {
+  width: 136px;
+}
+
+/* "Loading" with dots that appear one by one. The dots always take up their full space and are
+   revealed by clipping, so nothing around them moves. */
 .pill-button.is-loading::after {
   content: '...';
   display: inline-block;
-  width: 0;
-  overflow: hidden;
+  width: 1.1em;
+  text-align: left;
   vertical-align: bottom;
   animation: loading-dots 1.2s steps(4, jump-none) infinite;
 }
 
 @keyframes loading-dots {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
   to {
-    width: 1.1em;
+    clip-path: inset(0 0 0 0);
   }
 }
 
-#load-message {
+#status-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  min-height: 16px;
+  color: #555;
+}
+
+#status-bar[hidden] {
+  display: none;
+}
+
+#status-bar.is-error {
   color: #b00020;
   fill: #b00020;
 }
 
-#load-message[hidden] {
+.status-error-icon {
+  flex: none;
   display: none;
 }
 
-#load-message svg {
-  flex: none;
+#status-bar.is-error .status-error-icon {
+  display: block;
 }
 
-#load-message-text {
+#status-bar-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+#status-bar-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+#status-bar-actions:empty {
+  display: none;
+}
+
+.text-button.status-action {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
 }
 
 .expand-icon,
@@ -296,7 +422,7 @@ body.compact {
     'frame capture';
 }
 
-body.compact #load-message {
+body.compact #status-bar {
   grid-area: message;
   padding: 8px 10px;
   border-bottom: 1px solid #ddd;
@@ -308,12 +434,6 @@ body.compact #preview-column {
 
 body.compact #toolbar {
   grid-area: toolbar;
-  padding: 8px 10px;
-  border-bottom: 1px solid #ddd;
-}
-
-body.compact #shortcut-hint {
-  display: none;
 }
 
 body.compact #editor-column {
@@ -357,10 +477,6 @@ body.compact #capture-panel {
 
 .round-button:hover {
   filter: brightness(0.92);
-}
-
-#shortcut-hint {
-  color: #777;
 }
 
 #frame-host {
