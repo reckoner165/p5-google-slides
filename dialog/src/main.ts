@@ -1,7 +1,7 @@
 import './style.css';
-import { createEditor, getEditorCode, STARTER_SKETCH } from './editor';
+import { createEditor, getEditorCode, setEditorCode, STARTER_SKETCH } from './editor';
 import { SketchRunner, type Capture, type RecordProgress, type SketchError } from './runner';
-import { bytesToBase64, insertSketch, type SketchSettings } from './server';
+import { bytesToBase64, getSelectedSketch, insertSketch, updateSketch, type SketchSettings } from './server';
 
 const LARGE_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -13,8 +13,9 @@ const errorList = getElement<HTMLUListElement>('error-list');
 const frameHost = getElement<HTMLDivElement>('frame-host');
 const formatSelect = getElement<HTMLSelectElement>('format-select');
 const scaleSelect = getElement<HTMLSelectElement>('scale-select');
-const gifSettings = getElement<HTMLDivElement>('gif-settings');
-const jpegSettings = getElement<HTMLDivElement>('jpeg-settings');
+const durationRow = getElement<HTMLDivElement>('duration-row');
+const fpsRow = getElement<HTMLDivElement>('fps-row');
+const jpegQualityRow = getElement<HTMLDivElement>('jpeg-quality-row');
 const durationInput = getElement<HTMLInputElement>('duration-input');
 const fpsInput = getElement<HTMLInputElement>('fps-input');
 const jpegQualityInput = getElement<HTMLInputElement>('jpeg-quality-input');
@@ -25,10 +26,14 @@ const resultArea = getElement<HTMLDivElement>('result-area');
 const resultPreview = getElement<HTMLImageElement>('result-preview');
 const resultInfo = getElement<HTMLSpanElement>('result-info');
 const insertButton = getElement<HTMLButtonElement>('insert-button');
+const updateButton = getElement<HTMLButtonElement>('update-button');
+const loadSelectedButton = getElement<HTMLButtonElement>('load-selected-button');
 
 // The latest capture, with the settings that produced it, waiting to be inserted.
 let pendingCapture: { capture: Capture; settings: SketchSettings } | null = null;
 let settingsForCaptureInProgress: SketchSettings | null = null;
+// Set when a sketch was loaded from the deck, so Update can replace that image in place.
+let loadedSketchObjectId: string | null = null;
 
 function formatMegabytes(byteCount: number): string {
   return `${(byteCount / (1024 * 1024)).toFixed(2)} MB`;
@@ -67,6 +72,8 @@ function showCapture(capture: Capture): void {
   resultInfo.classList.toggle('warning', isLarge);
   resultArea.hidden = false;
   insertButton.disabled = false;
+  updateButton.hidden = loadedSketchObjectId === null;
+  updateButton.disabled = false;
   setCaptureStatus('');
 }
 
@@ -95,8 +102,9 @@ const editorView = createEditor(getElement('editor-host'), STARTER_SKETCH, runSk
 
 function updateFormatControls(): void {
   const format = formatSelect.value;
-  gifSettings.hidden = format !== 'gif';
-  jpegSettings.hidden = format !== 'jpeg';
+  durationRow.hidden = format !== 'gif';
+  fpsRow.hidden = format !== 'gif';
+  jpegQualityRow.hidden = format !== 'jpeg';
   captureButton.textContent = format === 'gif' ? 'Record GIF' : 'Snapshot';
 }
 
@@ -118,30 +126,79 @@ function startCapture(): void {
   }
 }
 
-async function insertPendingCapture(): Promise<void> {
+// Sends the pending capture to the deck: a new image, or a replacement for the loaded sketch.
+async function sendPendingCapture(destination: 'insert' | 'update'): Promise<void> {
   if (!pendingCapture) return;
   const { capture, settings } = pendingCapture;
   insertButton.disabled = true;
-  setCaptureStatus(`Inserting ${formatMegabytes(capture.bytes.length)}…`);
+  updateButton.disabled = true;
+  const actionName = destination === 'insert' ? 'Inserting' : 'Updating';
+  setCaptureStatus(`${actionName} ${formatMegabytes(capture.bytes.length)}…`);
   try {
     const imageBase64 = await bytesToBase64(capture.bytes);
-    await insertSketch(imageBase64, capture.mimeType, settings);
-    setCaptureStatus('Inserted into the slide.');
+    if (destination === 'update' && loadedSketchObjectId) {
+      await updateSketch(loadedSketchObjectId, imageBase64, capture.mimeType, settings);
+      setCaptureStatus('Updated on the slide.');
+    } else {
+      await insertSketch(imageBase64, capture.mimeType, settings);
+      setCaptureStatus('Inserted into the slide.');
+    }
   } catch (error) {
     setCaptureStatus(error instanceof Error ? error.message : String(error), true);
   } finally {
     insertButton.disabled = false;
+    updateButton.disabled = false;
+  }
+}
+
+function applySettingsToControls(settings: SketchSettings): void {
+  formatSelect.value = settings.format;
+  if (Array.from(scaleSelect.options).some((option) => Number(option.value) === settings.scale)) {
+    scaleSelect.value = String(settings.scale);
+  }
+  if (settings.duration !== undefined) durationInput.value = String(settings.duration);
+  if (settings.fps !== undefined) fpsInput.value = String(settings.fps);
+  if (settings.jpegQuality !== undefined) {
+    jpegQualityInput.value = String(settings.jpegQuality);
+    jpegQualityValue.textContent = settings.jpegQuality.toFixed(2);
+  }
+  updateFormatControls();
+}
+
+// isAutomatic: true when called as the dialog opens, where "nothing selected" is not an error.
+async function loadSelectedSketch(isAutomatic: boolean): Promise<void> {
+  loadSelectedButton.disabled = true;
+  try {
+    const selectedSketch = await getSelectedSketch();
+    if (!selectedSketch) {
+      if (!isAutomatic) setCaptureStatus('Select one sketch image in the deck, then try again.', true);
+      return;
+    }
+    loadedSketchObjectId = selectedSketch.objectId;
+    setEditorCode(editorView, selectedSketch.settings.code);
+    applySettingsToControls(selectedSketch.settings);
+    pendingCapture = null;
+    resultArea.hidden = true;
+    runSketch();
+    setCaptureStatus('Loaded the selected sketch. Capture it again, then Update on slide.');
+  } catch (error) {
+    if (!isAutomatic) setCaptureStatus(error instanceof Error ? error.message : String(error), true);
+  } finally {
+    loadSelectedButton.disabled = false;
   }
 }
 
 getElement('run-button').addEventListener('click', runSketch);
 getElement('stop-button').addEventListener('click', () => sketchRunner.pause());
+loadSelectedButton.addEventListener('click', () => loadSelectedSketch(false));
 formatSelect.addEventListener('change', updateFormatControls);
 jpegQualityInput.addEventListener('input', () => {
   jpegQualityValue.textContent = Number(jpegQualityInput.value).toFixed(2);
 });
 captureButton.addEventListener('click', startCapture);
-insertButton.addEventListener('click', insertPendingCapture);
+insertButton.addEventListener('click', () => sendPendingCapture('insert'));
+updateButton.addEventListener('click', () => sendPendingCapture('update'));
 
 updateFormatControls();
 runSketch();
+loadSelectedSketch(true);

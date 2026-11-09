@@ -30,3 +30,7 @@ export function createEditor(parentElement: HTMLElement, initialCode: string, on
 export function getEditorCode(editorView: EditorView): string {
   return editorView.state.doc.toString();
 }
+
+export function setEditorCode(editorView: EditorView, code: string): void {
+  editorView.dispatch({ changes: { from: 0, to: editorView.state.doc.length, insert: code } });
+}

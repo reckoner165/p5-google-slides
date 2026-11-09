@@ -3,6 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <title>p5 Sketch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;600&family=Montserrat:wght@400;500;600&display=swap">
   </head>
   <body>
     <div id="editor-column">
@@ -18,43 +21,66 @@
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" /></svg>
         </button>
         <span id="shortcut-hint">⌘/Ctrl + Enter to run</span>
+        <button id="load-selected-button" class="text-button" title="Load the sketch image selected in the deck">Load selected</button>
       </div>
       <div id="frame-host"></div>
 
       <section id="capture-panel">
-        <div class="field-row">
-          <label>Format
+        <!-- Two-column grid: labels on the left, controls on the right. Rows use display: contents
+             so their label and control sit directly in the grid, and hiding a row hides both. -->
+        <div class="settings-grid">
+          <div class="setting-row">
+            <label for="format-select">Format</label>
             <select id="format-select">
               <option value="gif">GIF</option>
               <option value="png">PNG</option>
               <option value="jpeg">JPEG</option>
             </select>
-          </label>
-          <label>Scale
+          </div>
+          <div class="setting-row">
+            <label for="scale-select">Scale</label>
             <select id="scale-select">
               <option value="0.5">0.5×</option>
               <option value="1" selected>1×</option>
               <option value="2">2×</option>
             </select>
-          </label>
+          </div>
+          <div class="setting-row" id="duration-row">
+            <label for="duration-input">Duration</label>
+            <div class="control-with-unit">
+              <input id="duration-input" type="number" min="0.5" max="20" step="0.5" value="3">
+              <span class="unit">seconds</span>
+            </div>
+          </div>
+          <div class="setting-row" id="fps-row">
+            <label for="fps-input">Frame rate</label>
+            <div class="control-with-unit">
+              <input id="fps-input" type="number" min="1" max="50" step="1" value="15">
+              <span class="unit">fps</span>
+            </div>
+          </div>
+          <div class="setting-row" id="jpeg-quality-row" hidden>
+            <label for="jpeg-quality-input">Quality</label>
+            <div class="control-with-unit">
+              <input id="jpeg-quality-input" type="range" min="0.1" max="1" step="0.05" value="0.9">
+              <span class="unit" id="jpeg-quality-value">0.90</span>
+            </div>
+          </div>
         </div>
-        <div class="field-row" id="gif-settings">
-          <label>Duration <input id="duration-input" type="number" min="0.5" max="20" step="0.5" value="3"> s</label>
-          <label>FPS <input id="fps-input" type="number" min="1" max="50" step="1" value="15"></label>
-        </div>
-        <div class="field-row" id="jpeg-settings" hidden>
-          <label>Quality <input id="jpeg-quality-input" type="range" min="0.1" max="1" step="0.05" value="0.9"></label>
-          <span id="jpeg-quality-value">0.90</span>
-        </div>
-        <div class="field-row">
+
+        <div class="action-row">
           <button id="capture-button" class="text-button">Record GIF</button>
           <span id="capture-status"></span>
         </div>
+
         <div id="result-area" hidden>
           <img id="result-preview" alt="Captured sketch">
-          <div class="result-actions">
+          <div class="result-details">
             <span id="result-info"></span>
-            <button id="insert-button" class="text-button primary">Insert into slide</button>
+            <div class="result-buttons">
+              <button id="insert-button" class="text-button primary">Insert into slide</button>
+              <button id="update-button" class="text-button primary" hidden>Update on slide</button>
+            </div>
           </div>
         </div>
       </section>

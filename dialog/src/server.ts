@@ -43,3 +43,23 @@ export function bytesToBase64(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
 export function insertSketch(imageBase64: string, mimeType: string, settings: SketchSettings): Promise<InsertResult> {
   return callServer<InsertResult>('insertSketch', imageBase64, mimeType, JSON.stringify(settings));
 }
+
+export interface SelectedSketch {
+  objectId: string;
+  settings: SketchSettings;
+}
+
+export async function getSelectedSketch(): Promise<SelectedSketch | null> {
+  const selection = await callServer<{ objectId: string; sketchJson: string } | null>('getSelectedSketch');
+  if (!selection) return null;
+  return { objectId: selection.objectId, settings: JSON.parse(selection.sketchJson) as SketchSettings };
+}
+
+export function updateSketch(
+  objectId: string,
+  imageBase64: string,
+  mimeType: string,
+  settings: SketchSettings,
+): Promise<InsertResult> {
+  return callServer<InsertResult>('updateSketch', objectId, imageBase64, mimeType, JSON.stringify(settings));
+}

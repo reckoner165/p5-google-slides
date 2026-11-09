@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  font: 13px system-ui, sans-serif;
+  font: 13px 'Montserrat', system-ui, sans-serif;
   height: 100vh;
   display: flex;
 }
@@ -21,6 +21,18 @@ body {
 
 #editor-host .cm-editor {
   height: 100%;
+}
+
+#editor-host .cm-scroller {
+  font-family: 'Inconsolata', ui-monospace, monospace;
+  font-size: 15px;
+}
+
+/* Buttons and form controls don't inherit the page font by default. */
+button,
+select,
+input {
+  font: inherit;
 }
 
 #error-list {
@@ -50,32 +62,95 @@ body {
 #capture-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 14px;
+  padding-top: 14px;
   border-top: 1px solid #eee;
 }
 
-.field-row {
-  display: flex;
-  gap: 12px;
+.settings-grid {
+  display: grid;
+  grid-template-columns: 90px 160px;
+  column-gap: 12px;
+  row-gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
-.field-row[hidden] {
+.setting-row {
+  display: contents;
+}
+
+.setting-row[hidden] {
   display: none;
 }
 
-.field-row input[type='number'] {
-  width: 56px;
+.settings-grid label {
+  color: #555;
+  font-weight: 500;
 }
 
-.text-button {
-  padding: 6px 14px;
+.settings-grid select,
+.settings-grid input[type='number'] {
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   background: #fff;
+}
+
+.settings-grid select {
+  width: 100%;
+}
+
+.control-with-unit {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.control-with-unit input[type='number'] {
+  width: 100%;
+}
+
+.control-with-unit input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: #ed225d;
+}
+
+.unit {
+  color: #777;
+  min-width: 52px;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 262px 1fr;
+  column-gap: 12px;
+  align-items: center;
+}
+
+/* Spans the label and control columns of the settings grid above it. */
+#capture-button {
+  width: 100%;
+}
+
+.text-button {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
   cursor: pointer;
+}
+
+.text-button:hover:not(:disabled) {
+  background: #ed225d;
+  border-color: #ed225d;
+  color: #fff;
 }
 
 .text-button.primary {
@@ -84,9 +159,18 @@ body {
   color: #fff;
 }
 
+.text-button.primary:hover:not(:disabled) {
+  background: #c81a4d;
+  border-color: #c81a4d;
+}
+
 .text-button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.text-button[hidden] {
+  display: none;
 }
 
 #capture-status {
@@ -97,24 +181,45 @@ body {
   color: #b00020 !important;
 }
 
-#result-preview {
-  display: block;
-  max-width: 200px;
-  max-height: 140px;
-  border: 1px solid #ddd;
-  margin-bottom: 6px;
+#result-area {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  align-items: start;
 }
 
-.result-actions {
+#result-area[hidden] {
+  display: none;
+}
+
+#result-preview {
+  display: block;
+  max-width: 160px;
+  max-height: 120px;
+  border: 1px solid #ddd;
+}
+
+.result-details {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.result-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 #toolbar {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+#load-selected-button {
+  margin-left: auto;
 }
 
 .round-button {
