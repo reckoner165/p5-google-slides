@@ -1,11 +1,13 @@
 /* Shared by every page of p5sketch.acrosspolyethylene.com. */
 
 :root {
-  --text: #222;
-  --muted: #666;
-  --accent: #ed225d;
-  --rule: #e4e4e4;
-  --background: #fff;
+  /* Palette from blog.acrosspolyethylene.com */
+  --text: #1f305e;
+  --link: #1f308e;
+  --muted: #4f6d7a;
+  --accent: #ff5f00;
+  --rule: #1f305e;
+  --background: #f8ecdf;
 }
 
 * {
@@ -34,6 +36,10 @@ h3,
 }
 
 a {
+  color: var(--link);
+}
+
+a:hover {
   color: var(--accent);
 }
 
@@ -50,13 +56,17 @@ a {
   justify-content: space-between;
   gap: 8px 20px;
   padding: 24px 0;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 3px solid var(--rule);
 }
 
 .site-name {
-  color: var(--text);
+  color: var(--link);
   font-size: 15px;
   text-decoration: none;
+}
+
+.site-name:hover {
+  color: var(--accent);
 }
 
 .site-nav {
@@ -67,7 +77,7 @@ a {
 }
 
 .site-nav a {
-  color: var(--muted);
+  color: var(--link);
   text-decoration: none;
 }
 
